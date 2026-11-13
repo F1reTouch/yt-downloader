@@ -24,12 +24,23 @@ jobs:
           python -m pip install yt-dlp pyinstaller
 
       - name: Скачать и распаковать ffmpeg
+        shell: pwsh
         run: |
           curl.exe -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
-          tar -xf ffmpeg.zip
+          Remove-Item -Path ffmpeg_tmp -Recurse -Force -ErrorAction SilentlyContinue
+          Expand-Archive -Path ffmpeg.zip -DestinationPath ffmpeg_tmp -Force
+          Remove-Item -Path release -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path release | Out-Null
-          Get-ChildItem -Recurse -Filter ffmpeg.exe  | Copy-Item -Destination release
-          Get-ChildItem -Recurse -Filter ffprobe.exe | Copy-Item -Destination release
+          $ffmpeg  = Get-ChildItem -Path ffmpeg_tmp -Recurse -Filter ffmpeg.exe  | Select-Object -First 1
+          $ffprobe = Get-ChildItem -Path ffmpeg_tmp -Recurse -Filter ffprobe.exe | Select-Object -First 1
+          if (-not $ffmpeg) { throw "ffmpeg.exe не найден в архиве" }
+          Copy-Item -Path $ffmpeg.FullName -Destination release\ffmpeg.exe -Force
+          if ($ffprobe) {
+            Copy-Item -Path $ffprobe.FullName -Destination release\ffprobe.exe -Force
+         
+          }
+          Remove-Item -Path ffmpeg.zip -Force
+          Remove-Item -Path ffmpeg_tmp -Recurse -Force
 
       - name: Собрать YouTubeDownloader.exe
         run: pyinstaller --onefile --noconsole --name YouTubeDownloader downloader.py
