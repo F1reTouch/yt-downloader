@@ -19,6 +19,12 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("YouTube Downloader")
+
+        # Принудительно поднять окно и забрать фокус (фикс --noconsole на Windows)
+        self.lift()
+        self.attributes('-topmost', True)
+        self.after(100, lambda: self.attributes('-topmost', False))
+        self.focus_force()
         self.geometry("640x280")
         self.resizable(False, False)
         self.columnconfigure(0, weight=1)
@@ -27,6 +33,57 @@ class App(tk.Tk):
         self.url_entry = ttk.Entry(self)
         self.url_entry.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10)
         self.url_entry.focus()
+
+        # Ручная обработка Ctrl+V (обход бага --noconsole на Windows)
+        def paste_from_clipboard(event=None):
+            try:
+                text = self.clipboard_get()
+                if self.url_entry.selection_present():
+                    self.url_entry.delete("sel.first", "sel.last")
+                self.url_entry.insert(tk.INSERT, text)
+            except tk.TclError:
+                pass
+            return "break"
+
+        def copy_selection(event=None):
+            try:
+                if self.url_entry.selection_present():
+                    self.clipboard_clear()
+                    self.clipboard_append(self.url_entry.get("sel.first", "sel.last"))
+            except tk.TclError:
+                pass
+            return "break"
+
+        def cut_selection(event=None):
+            try:
+                if self.url_entry.selection_present():
+                    self.clipboard_clear()
+                    self.clipboard_append(self.url_entry.get("sel.first", "sel.last"))
+                    self.url_entry.delete("sel.first", "sel.last")
+            except tk.TclError:
+                pass
+            return "break"
+
+        # Биндинг горячих клавиш
+        self.url_entry.bind('<Control-v>', paste_from_clipboard)
+        self.url_entry.bind('<Control-V>', paste_from_clipboard)
+        self.url_entry.bind('<Control-c>', copy_selection)
+        self.url_entry.bind('<Control-C>', copy_selection)
+        self.url_entry.bind('<Control-x>', cut_selection)
+        self.url_entry.bind('<Control-X>', cut_selection)
+
+        # Контекстное меню по правой кнопке мыши
+        def show_context_menu(event):
+            menu = tk.Menu(self, tearoff=0)
+            menu.add_command(label="Вставить", command=paste_from_clipboard)
+            menu.add_command(label="Копировать", command=copy_selection)
+            menu.add_command(label="Вырезать", command=cut_selection)
+            try:
+                menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                menu.grab_release()
+
+        self.url_entry.bind('<Button-3>', show_context_menu)
 
         ttk.Label(self, text="Качество:").grid(row=2, column=0, sticky="w", padx=10, pady=(8, 2))
         self.quality = ttk.Combobox(self, values=list(QUALITY), state="readonly", width=28)
