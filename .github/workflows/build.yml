@@ -1,0 +1,47 @@
+name: Build EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Скачать код репозитория
+        uses: actions/checkout@v4
+
+      - name: Установить Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Установить yt-dlp и PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install yt-dlp pyinstaller
+
+      - name: Скачать и распаковать ffmpeg
+        run: |
+          curl.exe -L -o ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          tar -xf ffmpeg.zip
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Get-ChildItem -Recurse -Filter ffmpeg.exe  | Copy-Item -Destination release
+          Get-ChildItem -Recurse -Filter ffprobe.exe | Copy-Item -Destination release
+
+      - name: Собрать YouTubeDownloader.exe
+        run: pyinstaller --onefile --noconsole --name YouTubeDownloader downloader.py
+
+      - name: Собрать zip для скачивания
+        run: |
+          Copy-Item dist\YouTubeDownloader.exe release\
+          Compress-Archive -Path release\* -DestinationPath YouTubeDownloader.zip -Force
+
+      - name: Опубликовать артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: YouTubeDownloader
+          path: YouTubeDownloader.zip
+          retention-days: 90
